@@ -1,0 +1,14 @@
+# Render-specific Dockerfile for one-off Comp AI database migrations and seed.
+# Use this in a Render job/shell, not as a public web service.
+
+FROM oven/bun:1.2.8 AS migrator
+
+WORKDIR /app
+
+COPY packages/db/prisma ./packages/db/prisma
+
+RUN echo '{"name":"migrator","type":"module","dependencies":{"prisma":"^6.14.0","@prisma/client":"^6.14.0","@trycompai/db":"^1.3.4","zod":"^3.25.7"}}' > package.json
+RUN bun install
+RUN cp -R packages/db/prisma/migrations node_modules/@trycompai/db/dist/
+
+CMD ["bunx", "prisma", "migrate", "deploy", "--schema=node_modules/@trycompai/db/dist/schema.prisma"]
