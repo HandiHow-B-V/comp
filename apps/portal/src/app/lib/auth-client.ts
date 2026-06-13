@@ -7,8 +7,8 @@ import { createAuthClient } from 'better-auth/react';
 import { ac, allRoles } from '@trycompai/auth';
 
 const authBaseURL =
-  process.env.NEXT_PUBLIC_BETTER_AUTH_URL ||
   (typeof window !== 'undefined' ? window.location.origin : undefined) ||
+  process.env.NEXT_PUBLIC_BETTER_AUTH_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
   'http://localhost:3333';
 
