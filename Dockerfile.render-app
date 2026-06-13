@@ -78,4 +78,4 @@ COPY --from=app-builder /app/packages/db/prisma.config.ts ./packages/db/prisma.c
 
 ENV HOSTNAME=0.0.0.0
 EXPOSE 3000
-CMD ["sh", "-c", "cd packages/db && node /app/prisma-cli/node_modules/prisma/build/index.js migrate deploy && cd /app && node apps/app/server.js"]
+CMD ["sh", "-c", "export NODE_PATH=/app/prisma-cli/node_modules && cd packages/db && node /app/prisma-cli/node_modules/prisma/build/index.js migrate deploy && cd /app && node apps/app/server.js"]
