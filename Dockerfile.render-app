@@ -2,9 +2,11 @@
 # Render does not expose Docker build targets in the dashboard, so this file
 # mirrors the upstream app target from Dockerfile and makes it the final image.
 
-FROM oven/bun:1.2.8 AS deps
+FROM node:22-alpine AS deps
 
 WORKDIR /app
+
+RUN npm install -g bun@1.2.8
 
 COPY package.json bun.lock ./
 COPY packages/analytics/package.json ./packages/analytics/
