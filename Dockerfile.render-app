@@ -33,7 +33,6 @@ WORKDIR /app
 
 COPY packages ./packages
 COPY apps/app ./apps/app
-COPY --from=deps /app/node_modules ./node_modules
 
 RUN cd packages/db && node scripts/combine-schemas.js \
                    && node scripts/generate-prisma-client-js.js
