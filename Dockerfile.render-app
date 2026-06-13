@@ -72,12 +72,10 @@ WORKDIR /app
 COPY --from=app-builder /app/apps/app/.next/standalone ./
 COPY --from=app-builder /app/apps/app/.next/static ./apps/app/.next/static
 COPY --from=app-builder /app/apps/app/public ./apps/app/public
-COPY --from=deps /app/node_modules/prisma ./node_modules/prisma
-COPY --from=deps /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=deps /app/node_modules/dotenv ./node_modules/dotenv
+COPY --from=deps /app/node_modules ./prisma-cli/node_modules
 COPY --from=app-builder /app/packages/db/prisma ./packages/db/prisma
 COPY --from=app-builder /app/packages/db/prisma.config.ts ./packages/db/prisma.config.ts
 
 ENV HOSTNAME=0.0.0.0
 EXPOSE 3000
-CMD ["sh", "-c", "cd packages/db && node /app/node_modules/prisma/build/index.js migrate deploy && cd /app && node apps/app/server.js"]
+CMD ["sh", "-c", "cd packages/db && node /app/prisma-cli/node_modules/prisma/build/index.js migrate deploy && cd /app && node apps/app/server.js"]
