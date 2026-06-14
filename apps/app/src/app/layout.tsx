@@ -82,6 +82,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
 
   const dubIsEnabled = env.DUB_API_KEY !== undefined;
   const dubReferUrl = env.DUB_REFER_URL;
+  const vercelAnalyticsIsEnabled = env.NEXT_PUBLIC_SELF_HOSTED !== 'true';
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -99,7 +100,7 @@ export default async function Layout({ children }: { children: React.ReactNode }
           <Providers session={session}>{children}</Providers>
         </NuqsAdapter>
         <Toaster richColors />
-        <VercelAnalytics />
+        {vercelAnalyticsIsEnabled && <VercelAnalytics />}
       </body>
     </html>
   );
