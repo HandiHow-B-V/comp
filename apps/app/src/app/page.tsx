@@ -17,6 +17,19 @@ interface AuthMeResponse {
   pendingInvitation: { id: string } | null;
 }
 
+async function canCreateSelfHostedOrganization(): Promise<boolean> {
+  if (process.env.SELF_HOSTED_ALLOW_ORG_SETUP === 'true') {
+    return true;
+  }
+
+  if (process.env.NEXT_PUBLIC_SELF_HOSTED !== 'true') {
+    return true;
+  }
+
+  const organizationCount = await db.organization.count();
+  return organizationCount === 0;
+}
+
 export default async function RootPage({
   searchParams,
 }: {
@@ -58,6 +71,9 @@ export default async function RootPage({
   if (memberships.length === 0) {
     if (pendingInvitation) {
       return redirect(await buildUrlWithParams(`/invite/${pendingInvitation.id}`));
+    }
+    if (!(await canCreateSelfHostedOrganization())) {
+      return redirect(await buildUrlWithParams('/no-access'));
     }
     return redirect(await buildUrlWithParams('/setup'));
   }

@@ -16,8 +16,27 @@ export default async function NoAccess() {
     headers: await headers(),
   });
 
-  if (!session || !session.session.activeOrganizationId) {
-    return redirect('/');
+  if (!session) {
+    return redirect('/auth');
+  }
+
+  if (!session.session.activeOrganizationId) {
+    return (
+      <div className="flex h-dvh flex-col">
+        <Header organizationId={undefined} hideChat={true} />
+        <div className="bg-foreground/05 flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
+          <h1 className="text-2xl font-bold">Access Denied</h1>
+          <div className="max-w-xl space-y-2">
+            <p>
+              You do not have access to this Comp AI instance with this account.
+            </p>
+            <p>
+              Ask an administrator to invite you to an organization before signing in.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const [meRes, orgRes] = await Promise.all([

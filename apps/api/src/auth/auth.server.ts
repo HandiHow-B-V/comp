@@ -230,6 +230,58 @@ if (
 
 const cookieDomain = getCookieDomain();
 
+function isPublicSignupDisabled(): boolean {
+  if (process.env.AUTH_DISABLE_PUBLIC_SIGNUP === 'false') {
+    return false;
+  }
+
+  return (
+    process.env.AUTH_DISABLE_PUBLIC_SIGNUP === 'true' ||
+    process.env.NEXT_PUBLIC_SELF_HOSTED === 'true'
+  );
+}
+
+async function assertAuthEmailAllowed(email: string): Promise<void> {
+  if (!isPublicSignupDisabled()) {
+    return;
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const [existingUser, pendingInvitation] = await Promise.all([
+    db.user.findFirst({
+      where: {
+        email: {
+          equals: normalizedEmail,
+          mode: 'insensitive',
+        },
+      },
+      select: { id: true },
+    }),
+    db.invitation.findFirst({
+      where: {
+        email: {
+          equals: normalizedEmail,
+          mode: 'insensitive',
+        },
+        status: 'pending',
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+      select: { id: true },
+    }),
+  ]);
+
+  if (existingUser || pendingInvitation) {
+    return;
+  }
+
+  console.warn('[Auth] Blocked auth email for uninvited address', {
+    email: normalizedEmail,
+  });
+  throw new Error('This instance is invite-only.');
+}
+
 // ── Hosted MCP (Speakeasy Gram) OAuth ────────────────────────────────────────
 // The MCP server is hosted on Gram. Gram obtains an OAuth access token from this
 // API (better-auth as the authorization server) so users authenticate with
@@ -531,6 +583,7 @@ export const auth = betterAuth({
     magicLink({
       expiresIn: MAGIC_LINK_EXPIRES_IN_SECONDS,
       sendMagicLink: async ({ email, url }) => {
+        await assertAuthEmailAllowed(email);
         const magicLinkUrl = getMagicLinkUrl(url);
 
         if (process.env.NODE_ENV === 'development') {
@@ -548,6 +601,7 @@ export const auth = betterAuth({
       otpLength: 6,
       expiresIn: 10 * 60,
       async sendVerificationOTP({ email, otp }) {
+        await assertAuthEmailAllowed(email);
         if (process.env.NODE_ENV === 'development') {
           console.log('[Auth] Sending OTP to:', email);
         }
