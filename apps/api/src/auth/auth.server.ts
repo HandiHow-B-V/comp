@@ -21,6 +21,40 @@ import type { AccessControl } from 'better-auth/plugins/access';
 
 const MAGIC_LINK_EXPIRES_IN_SECONDS = 60 * 60; // 1 hour
 
+function getSelfHostedAuthOrigin(): string | undefined {
+  if (process.env.NEXT_PUBLIC_SELF_HOSTED !== 'true') {
+    return undefined;
+  }
+
+  const origin =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.NEXT_PUBLIC_BETTER_AUTH_URL ??
+    process.env.BETTER_AUTH_URL;
+
+  if (!origin) {
+    return undefined;
+  }
+
+  try {
+    return new URL(origin).origin;
+  } catch {
+    return undefined;
+  }
+}
+
+function getMagicLinkUrl(url: string): string {
+  const selfHostedAuthOrigin = getSelfHostedAuthOrigin();
+  if (!selfHostedAuthOrigin) {
+    return url;
+  }
+
+  const magicLinkUrl = new URL(url);
+  const authOrigin = new URL(selfHostedAuthOrigin);
+  magicLinkUrl.protocol = authOrigin.protocol;
+  magicLinkUrl.host = authOrigin.host;
+  return magicLinkUrl.toString();
+}
+
 /**
  * Determine the cookie domain based on environment.
  */
@@ -490,18 +524,16 @@ export const auth = betterAuth({
     magicLink({
       expiresIn: MAGIC_LINK_EXPIRES_IN_SECONDS,
       sendMagicLink: async ({ email, url }) => {
-        // The `url` from better-auth points to the API's verify endpoint
-        // and includes the callbackURL from the client's sign-in request.
-        // Flow: user clicks link → API verifies token & sets session cookie
-        // → API redirects (302) to callbackURL (the app).
+        const magicLinkUrl = getMagicLinkUrl(url);
+
         if (process.env.NODE_ENV === 'development') {
           console.log('[Auth] Sending magic link to:', email);
-          console.log('[Auth] Magic link URL:', url);
+          console.log('[Auth] Magic link URL:', magicLinkUrl);
         }
         await triggerEmail({
           to: email,
           subject: 'Login to Comp AI',
-          react: MagicLinkEmail({ email, url }),
+          react: MagicLinkEmail({ email, url: magicLinkUrl }),
         });
       },
     }),
