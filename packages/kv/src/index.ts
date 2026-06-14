@@ -53,9 +53,12 @@ class MockRedis {
 // Use mock client for E2E tests in CI or when explicitly mocked
 const isE2ETest = process.env.E2E_TEST_MODE === 'true' && process.env.CI === 'true';
 const isMockRequired = process.env.MOCK_REDIS === 'true';
+const hasUpstashConfig =
+  !!process.env.UPSTASH_REDIS_REST_URL &&
+  !!process.env.UPSTASH_REDIS_REST_TOKEN;
 
 export const client =
-  isE2ETest || isMockRequired
+  isE2ETest || isMockRequired || !hasUpstashConfig
     ? (new MockRedis() as any as Redis)
     : new Redis({
         url: process.env.UPSTASH_REDIS_REST_URL!,
