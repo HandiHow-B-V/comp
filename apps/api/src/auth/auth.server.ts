@@ -59,6 +59,13 @@ function getMagicLinkUrl(url: string): string {
  * Determine the cookie domain based on environment.
  */
 function getCookieDomain(): string | undefined {
+  const configuredCookieDomain = process.env.AUTH_COOKIE_DOMAIN?.trim();
+  if (configuredCookieDomain) {
+    return configuredCookieDomain.startsWith('.')
+      ? configuredCookieDomain
+      : `.${configuredCookieDomain}`;
+  }
+
   const baseUrl = process.env.BASE_URL || '';
 
   if (baseUrl.includes('staging.trycomp.ai')) {
