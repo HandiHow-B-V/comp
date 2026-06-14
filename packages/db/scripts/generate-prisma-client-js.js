@@ -39,7 +39,7 @@ datasource db {
   const prismaPackage = require.resolve('prisma/package.json');
   const prismaCli = path.join(path.dirname(prismaPackage), 'build', 'index.js');
 
-  execFileSync(process.execPath, [prismaCli, 'generate', `--schema=${tempDir}`], {
+  execFileSync('node', [prismaCli, 'generate', `--schema=${tempDir}`], {
     stdio: 'inherit',
     cwd: root,
   });
