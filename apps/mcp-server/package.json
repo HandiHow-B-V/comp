@@ -16,9 +16,9 @@
   "scripts": {
     "build": "bun i && bun src/mcp-server/build.mts && tsc",
     "mcpb:build": "bun i && bun src/mcp-server/build.mts --pack && tsc",
-    "check": "npm run lint",
+    "check": "bun run lint",
     "lint": "eslint --cache --max-warnings=0 src",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "bun run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.26.0",
@@ -27,7 +27,12 @@
     "zod": "^4.0.0"
   },
   "overrides": {
-    "@modelcontextprotocol/sdk": "1.26.0"
+    "@modelcontextprotocol/sdk": "1.26.0",
+    "body-parser": "2.3.0",
+    "fast-uri": "3.1.4",
+    "hono": "4.12.32",
+    "js-yaml": "4.3.0",
+    "tmp": "0.2.7"
   },
   "devDependencies": {
     "@anthropic-ai/mcpb": "^1.2.0",

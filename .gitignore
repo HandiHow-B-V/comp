@@ -70,6 +70,7 @@ playground/
 
 # Ignore lock files to prevent conflicts between different package managers
 bun.lock
+!apps/mcp-server/bun.lock
 yarn.lock
 
 # Playwright test results and reports
