@@ -1,11 +1,11 @@
-import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  setMockPermissions,
   ADMIN_PERMISSIONS,
   AUDITOR_PERMISSIONS,
   mockHasPermission,
+  setMockPermissions,
 } from '@/test-utils/mocks/permissions';
+import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/hooks/use-permissions', () => ({
   usePermissions: () => ({
@@ -23,9 +23,7 @@ vi.mock('@trycompai/ui/dialog', () => ({
 }));
 
 vi.mock('@trycompai/ui/scroll-area', () => ({
-  ScrollArea: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  ScrollArea: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 vi.mock('next/navigation', () => ({
@@ -46,6 +44,7 @@ const baseProps = {
   allFrameworks: [],
   frameworksWithCompliance: [],
   organizationId: 'org_123',
+  overallComplianceScore: 0,
 };
 
 describe('FrameworksOverview permission gating', () => {
@@ -82,12 +81,21 @@ describe('FrameworksOverview permission gating', () => {
           {
             id: 'fi_pci_level_1',
             controls: [],
+            organizationId: 'org_123',
+            frameworkId: 'fw_pci_level_1',
+            customFrameworkId: null,
+            customFramework: null,
+            currentVersionId: null,
             framework: {
               id: 'fw_pci_level_1',
               name: 'PCI DSS Level 1',
               description: 'Payment Card Industry Data Security Standard Level 1',
+              version: '4.0',
+              visible: true,
+              createdAt: new Date('2026-01-01'),
+              updatedAt: new Date('2026-01-01'),
             },
-          } as any,
+          },
         ]}
       />,
     );
@@ -107,12 +115,21 @@ describe('FrameworksOverview permission gating', () => {
           {
             id: 'fi_pci_variant',
             controls: [],
+            organizationId: 'org_123',
+            frameworkId: 'fw_pci_variant',
+            customFrameworkId: null,
+            customFramework: null,
+            currentVersionId: null,
             framework: {
               id: 'fw_pci_variant',
               name: 'PCI DSS v4.0 Level 1',
               description: 'PCI DSS framework variant',
+              version: '4.0',
+              visible: true,
+              createdAt: new Date('2026-01-01'),
+              updatedAt: new Date('2026-01-01'),
             },
-          } as any,
+          },
         ]}
       />,
     );

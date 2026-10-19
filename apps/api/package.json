@@ -76,8 +76,8 @@
         "@react-email/components": "^0.0.41",
         "@react-email/render": "^2.0.4",
         "@thallesp/nestjs-better-auth": "^2.4.0",
-        "@trigger.dev/build": "4.4.3",
-        "@trigger.dev/sdk": "4.4.3",
+        "@trigger.dev/build": "4.5.9",
+        "@trigger.dev/sdk": "4.5.9",
         "@trycompai/auth": "workspace:*",
         "@trycompai/billing": "workspace:*",
         "@trycompai/company": "workspace:*",
@@ -140,7 +140,7 @@
         "prettier": "^3.5.3",
         "source-map-support": "^0.5.21",
         "supertest": "^7.0.0",
-        "trigger.dev": "4.4.3",
+        "trigger.dev": "4.5.9",
         "ts-jest": "^29.2.5",
         "ts-loader": "^9.5.2",
         "ts-node": "^10.9.2",
@@ -189,7 +189,7 @@
         "db:generate": "bun run db:getschema && bunx prisma generate --schema=prisma/schema",
         "db:getschema": "find prisma/schema -name '*.prisma' ! -name 'schema.prisma' -delete && find ../../packages/db/prisma/schema -name '*.prisma' ! -name 'schema.prisma' -exec cp {} prisma/schema/ \\;",
         "db:migrate": "cd ../../packages/db && bunx prisma migrate dev && cd ../../apps/api",
-        "deploy:trigger-prod": "npx trigger.dev@4.4.3 deploy",
+        "deploy:trigger-prod": "bunx trigger.dev@4.5.9 deploy",
         "dev": "bunx concurrently --kill-others --names \"nest,trigger\" --prefix-colors \"green,blue\" \"nest start --watch\" \"trigger dev\"",
         "dev:nest": "nest start --watch",
         "dev:no-trigger": "nest start --watch",
@@ -206,6 +206,6 @@
         "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
         "test:e2e": "jest --config ./test/jest-e2e.json",
         "test:watch": "jest --watch",
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsc --noEmit --declaration false"
     }
 }

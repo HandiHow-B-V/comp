@@ -1,29 +1,24 @@
-import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  setMockPermissions,
-  mockHasPermission,
   ADMIN_PERMISSIONS,
   AUDITOR_PERMISSIONS,
+  mockHasPermission,
   NO_PERMISSIONS,
+  setMockPermissions,
 } from '@/test-utils/mocks/permissions';
-
-// ─── Mock usePermissions ─────────────────────────────────────
-
+import { render, screen } from '@testing-library/react';
+import type { ComponentProps, PropsWithChildren } from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CompanySubmissionDetailPageClient } from './CompanySubmissionDetailPageClient';
 vi.mock('@/hooks/use-permissions', () => ({
   usePermissions: () => ({
     permissions: {},
     hasPermission: mockHasPermission,
   }),
 }));
-
-// ─── Mock SWR ────────────────────────────────────────────────
-
 const mockMutate = vi.fn();
 let mockSwrData: unknown = undefined;
 let mockSwrLoading = false;
 let mockSwrError: unknown = null;
-
 vi.mock('swr', () => ({
   default: vi.fn(() => ({
     data: mockSwrData,
@@ -32,68 +27,49 @@ vi.mock('swr', () => ({
     mutate: mockMutate,
   })),
 }));
-
-// ─── Mock api client ─────────────────────────────────────────
-
 vi.mock('@/lib/api-client', () => ({
   api: {
     get: vi.fn().mockResolvedValue({ data: null, error: null }),
     patch: vi.fn().mockResolvedValue({ data: null, error: null }),
   },
 }));
-
-// ─── Mock design system ──────────────────────────────────────
-
 vi.mock('@trycompai/design-system', () => ({
-  Button: ({ children, ...props }: any) => (
+  Button: ({ children, ...props }: ComponentProps<'button'>) => (
     <button {...props}>{children}</button>
   ),
-  Empty: ({ children }: any) => <div>{children}</div>,
-  EmptyDescription: ({ children }: any) => <p>{children}</p>,
-  EmptyHeader: ({ children }: any) => <div>{children}</div>,
-  EmptyMedia: ({ children }: any) => <div>{children}</div>,
-  EmptyTitle: ({ children }: any) => <h3>{children}</h3>,
-  Field: ({ children }: any) => <div>{children}</div>,
-  FieldLabel: ({ children }: any) => <label>{children}</label>,
-  Section: ({ children }: any) => <section>{children}</section>,
-  Table: ({ children }: any) => <table>{children}</table>,
-  TableBody: ({ children }: any) => <tbody>{children}</tbody>,
-  TableCell: ({ children }: any) => <td>{children}</td>,
-  TableHead: ({ children }: any) => <th>{children}</th>,
-  TableHeader: ({ children }: any) => <thead>{children}</thead>,
-  TableRow: ({ children }: any) => <tr>{children}</tr>,
-  Text: ({ children }: any) => <span>{children}</span>,
-  Textarea: (props: any) => <textarea {...props} />,
+  Empty: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  EmptyDescription: ({ children }: PropsWithChildren) => <p>{children}</p>,
+  EmptyHeader: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  EmptyMedia: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  EmptyTitle: ({ children }: PropsWithChildren) => <h3>{children}</h3>,
+  Field: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  FieldLabel: ({ children }: PropsWithChildren) => <label>{children}</label>,
+  Section: ({ children }: PropsWithChildren) => <section>{children}</section>,
+  Table: ({ children }: PropsWithChildren) => <table>{children}</table>,
+  TableBody: ({ children }: PropsWithChildren) => <tbody>{children}</tbody>,
+  TableCell: ({ children }: PropsWithChildren) => <td>{children}</td>,
+  TableHead: ({ children }: PropsWithChildren) => <th>{children}</th>,
+  TableHeader: ({ children }: PropsWithChildren) => <thead>{children}</thead>,
+  TableRow: ({ children }: PropsWithChildren) => <tr>{children}</tr>,
+  Text: ({ children }: PropsWithChildren) => <span>{children}</span>,
+  Textarea: (props: ComponentProps<'textarea'>) => <textarea {...props} />,
 }));
-
 vi.mock('@trycompai/design-system/icons', () => ({
   Document: () => <span data-testid="document-icon" />,
 }));
-
-// ─── Mock submission-utils ───────────────────────────────────
-
 vi.mock('./submission-utils', () => ({
-  StatusBadge: ({ status }: { status: string }) => (
-    <span data-testid="status-badge">{status}</span>
-  ),
+  StatusBadge: ({ status }: { status: string }) => <span data-testid="status-badge">{status}</span>,
   formatSubmissionDate: () => '01/01/2025',
   isMatrixField: () => false,
   normalizeMatrixRows: () => [],
   renderSubmissionValue: (value: unknown) => String(value ?? '—'),
 }));
-
-// ─── Mock react-markdown ─────────────────────────────────────
-
 vi.mock('react-markdown', () => ({
-  default: ({ children }: any) => <div>{children}</div>,
+  default: ({ children }: PropsWithChildren) => <div>{children}</div>,
 }));
-
 vi.mock('remark-gfm', () => ({
   default: () => {},
 }));
-
-// ─── Mock sonner ─────────────────────────────────────────────
-
 vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
@@ -101,9 +77,11 @@ vi.mock('sonner', () => ({
   },
 }));
 
-import { CompanySubmissionDetailPageClient } from './CompanySubmissionDetailPageClient';
-
-// ─── Test data ───────────────────────────────────────────────
+const submissionProps = {
+  organizationId: 'org-1',
+  formType: 'access-request',
+  submissionId: 'sub-1',
+} as const;
 
 function makeSubmissionData(
   overrides: {
@@ -141,9 +119,6 @@ function makeSubmissionData(
     },
   };
 }
-
-// ─── Tests ───────────────────────────────────────────────────
-
 describe('CompanySubmissionDetailPageClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -151,197 +126,94 @@ describe('CompanySubmissionDetailPageClient', () => {
     mockSwrLoading = false;
     mockSwrError = null;
   });
-
   describe('Admin user with pending access-request', () => {
     beforeEach(() => {
       setMockPermissions(ADMIN_PERMISSIONS);
       mockSwrData = makeSubmissionData({ status: 'pending' });
     });
-
     it('renders the review section with Approve and Reject buttons', () => {
-      render(
-        <CompanySubmissionDetailPageClient
-          organizationId="org-1"
-          formType="access-request"
-          submissionId="sub-1"
-        />,
-      );
-
-      expect(
-        screen.getByText('Review this submission'),
-      ).toBeInTheDocument();
+      render(<CompanySubmissionDetailPageClient {...submissionProps} />);
+      expect(screen.getByText('Review this submission')).toBeInTheDocument();
       expect(screen.getByText('Approve')).toBeInTheDocument();
       expect(screen.getByText('Reject')).toBeInTheDocument();
     });
-
     it('renders the review reason textarea', () => {
-      render(
-        <CompanySubmissionDetailPageClient
-          organizationId="org-1"
-          formType="access-request"
-          submissionId="sub-1"
-        />,
-      );
-
-      expect(
-        screen.getByText('Reason (required for rejection)'),
-      ).toBeInTheDocument();
+      render(<CompanySubmissionDetailPageClient {...submissionProps} />);
+      expect(screen.getByText('Reason (required for rejection)')).toBeInTheDocument();
     });
-
     it('checks evidence:update permission', () => {
-      render(
-        <CompanySubmissionDetailPageClient
-          organizationId="org-1"
-          formType="access-request"
-          submissionId="sub-1"
-        />,
-      );
-
+      render(<CompanySubmissionDetailPageClient {...submissionProps} />);
       expect(mockHasPermission).toHaveBeenCalledWith('evidence', 'update');
     });
   });
-
   describe('Auditor user (read-only) with pending access-request', () => {
     beforeEach(() => {
       setMockPermissions(AUDITOR_PERMISSIONS);
       mockSwrData = makeSubmissionData({ status: 'pending' });
     });
-
     it('hides review section when auditor lacks evidence:update', () => {
-      render(
-        <CompanySubmissionDetailPageClient
-          organizationId="org-1"
-          formType="access-request"
-          submissionId="sub-1"
-        />,
-      );
-
+      render(<CompanySubmissionDetailPageClient {...submissionProps} />);
       const canReview = mockHasPermission('evidence', 'update');
       if (!canReview) {
-        expect(
-          screen.queryByText('Review this submission'),
-        ).not.toBeInTheDocument();
+        expect(screen.queryByText('Review this submission')).not.toBeInTheDocument();
         expect(screen.queryByText('Approve')).not.toBeInTheDocument();
         expect(screen.queryByText('Reject')).not.toBeInTheDocument();
       }
     });
-
     it('still renders the submission details', () => {
-      render(
-        <CompanySubmissionDetailPageClient
-          organizationId="org-1"
-          formType="access-request"
-          submissionId="sub-1"
-        />,
-      );
-
+      render(<CompanySubmissionDetailPageClient {...submissionProps} />);
       expect(screen.getByText('Submission Date')).toBeInTheDocument();
       expect(screen.getByText('Submitted By')).toBeInTheDocument();
     });
   });
-
   describe('No permissions with pending access-request', () => {
     beforeEach(() => {
       setMockPermissions(NO_PERMISSIONS);
       mockSwrData = makeSubmissionData({ status: 'pending' });
     });
-
     it('hides review section without evidence:update', () => {
-      render(
-        <CompanySubmissionDetailPageClient
-          organizationId="org-1"
-          formType="access-request"
-          submissionId="sub-1"
-        />,
-      );
-
-      expect(
-        screen.queryByText('Review this submission'),
-      ).not.toBeInTheDocument();
+      render(<CompanySubmissionDetailPageClient {...submissionProps} />);
+      expect(screen.queryByText('Review this submission')).not.toBeInTheDocument();
       expect(screen.queryByText('Approve')).not.toBeInTheDocument();
       expect(screen.queryByText('Reject')).not.toBeInTheDocument();
     });
   });
-
   describe('Approved access-request (non-pending)', () => {
     beforeEach(() => {
       setMockPermissions(ADMIN_PERMISSIONS);
       mockSwrData = makeSubmissionData({ status: 'approved' });
     });
-
     it('does NOT render review section for already-reviewed submission', () => {
-      render(
-        <CompanySubmissionDetailPageClient
-          organizationId="org-1"
-          formType="access-request"
-          submissionId="sub-1"
-        />,
-      );
-
-      expect(
-        screen.queryByText('Review this submission'),
-      ).not.toBeInTheDocument();
+      render(<CompanySubmissionDetailPageClient {...submissionProps} />);
+      expect(screen.queryByText('Review this submission')).not.toBeInTheDocument();
     });
   });
-
   describe('Non-access-request form type', () => {
     beforeEach(() => {
       setMockPermissions(ADMIN_PERMISSIONS);
       mockSwrData = makeSubmissionData({
-        formType: 'security-awareness-training',
+        formType: 'meeting',
       });
     });
-
     it('does NOT render the review section', () => {
-      render(
-        <CompanySubmissionDetailPageClient
-          organizationId="org-1"
-          formType="security-awareness-training"
-          submissionId="sub-1"
-        />,
-      );
-
-      expect(
-        screen.queryByText('Review this submission'),
-      ).not.toBeInTheDocument();
+      render(<CompanySubmissionDetailPageClient {...submissionProps} formType="meeting" />);
+      expect(screen.queryByText('Review this submission')).not.toBeInTheDocument();
     });
   });
-
   describe('Loading state', () => {
     it('shows loading text while fetching', () => {
       setMockPermissions(ADMIN_PERMISSIONS);
       mockSwrLoading = true;
-
-      render(
-        <CompanySubmissionDetailPageClient
-          organizationId="org-1"
-          formType="access-request"
-          submissionId="sub-1"
-        />,
-      );
-
-      expect(
-        screen.getByText('Loading submission...'),
-      ).toBeInTheDocument();
+      render(<CompanySubmissionDetailPageClient {...submissionProps} />);
+      expect(screen.getByText('Loading submission...')).toBeInTheDocument();
     });
   });
-
   describe('Error state', () => {
     it('shows not found text on error', () => {
       setMockPermissions(ADMIN_PERMISSIONS);
       mockSwrError = new Error('Not found');
-
-      render(
-        <CompanySubmissionDetailPageClient
-          organizationId="org-1"
-          formType="access-request"
-          submissionId="sub-1"
-        />,
-      );
-
-      expect(
-        screen.getByText('Submission not found'),
-      ).toBeInTheDocument();
+      render(<CompanySubmissionDetailPageClient {...submissionProps} />);
+      expect(screen.getByText('Submission not found')).toBeInTheDocument();
     });
   });
 });

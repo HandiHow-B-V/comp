@@ -30,7 +30,6 @@
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.20",
     "execa": "^9.6.1",
-    "gitmoji": "^1.1.1",
     "gray-matter": "^4.0.3",
     "husky": "^9.1.7",
     "prettier": "^3.8.3",
@@ -50,8 +49,16 @@
     "typescript": "^5.9.3",
     "use-debounce": "^10.1.1"
   },
+  "overrides": {
+    "shell-quote": "1.11.0",
+    "seroval": "1.6.2",
+    "handlebars": "4.7.10",
+    "proxy-addr": "2.0.8",
+    "giget": "2.0.0",
+    "tar": "7.5.22"
+  },
   "engines": {
-    "node": ">=18"
+    "node": ">=22.12.0"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,json,md}": "prettier --write"
@@ -64,7 +71,7 @@
     "check:prisma-schemas": "node scripts/check-generated-prisma-schemas.js",
     "clean": "git clean -xdf node_modules",
     "clean:workspaces": "turbo clean",
-    "deploy:trigger-prod": "npx trigger.dev@4.4.3 deploy",
+    "deploy:trigger-prod": "bunx trigger.dev@4.5.9 deploy",
     "deps:check": "syncpack list-mismatches",
     "deps:dedupe": "syncpack fix-mismatches && bun install",
     "deps:fix": "syncpack fix-mismatches",
@@ -81,6 +88,7 @@
     "prepare": "husky",
     "test": "turbo test --parallel",
     "test:release": "node scripts/test-release.js",
+    "test:dependency-compat": "bun scripts/check-dependency-compatibility.mjs",
     "typecheck": "turbo typecheck",
     "typecheck:ci": "turbo typecheck --filter={apps/**} --filter={packages/**} --filter=!@trycompai/integrations --filter=!@trycompai/ui"
   },
