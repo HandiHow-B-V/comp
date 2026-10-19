@@ -1,9 +1,8 @@
 import { TrainingCertificatePdfService } from './training-certificate-pdf.service';
 
 // Mock fetch for logo download
-global.fetch = jest.fn().mockResolvedValue({
-  ok: false,
-}) as unknown as typeof fetch;
+const mockFetch = jest.fn().mockResolvedValue({ ok: false });
+jest.spyOn(globalThis, 'fetch').mockImplementation(mockFetch);
 
 describe('TrainingCertificatePdfService', () => {
   let service: TrainingCertificatePdfService;
@@ -50,9 +49,7 @@ describe('TrainingCertificatePdfService', () => {
     });
 
     it('handles logo fetch failure gracefully', async () => {
-      (global.fetch as jest.Mock).mockRejectedValueOnce(
-        new Error('Network error'),
-      );
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
       const result = await service.generateTrainingCertificatePdf({
         userName: 'Logo User',

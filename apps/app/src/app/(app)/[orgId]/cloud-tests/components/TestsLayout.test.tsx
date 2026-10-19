@@ -1,11 +1,12 @@
-import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  setMockPermissions,
-  mockHasPermission,
   ADMIN_PERMISSIONS,
   AUDITOR_PERMISSIONS,
+  mockHasPermission,
+  setMockPermissions,
 } from '@/test-utils/mocks/permissions';
+import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Finding, Provider } from '../types';
 
 // Mock usePermissions
 vi.mock('@/hooks/use-permissions', () => ({
@@ -16,7 +17,13 @@ vi.mock('@/hooks/use-permissions', () => ({
 }));
 
 // Mock useApi hook
-const mockUseSWR = vi.fn(() => ({
+const mockUseSWR = vi.fn<
+  () => {
+    data: { data: { data: (Finding | Provider)[]; count: number } };
+    mutate: ReturnType<typeof vi.fn>;
+    isValidating: boolean;
+  }
+>(() => ({
   data: { data: { data: [], count: 0 } },
   mutate: vi.fn(),
   isValidating: false,
@@ -27,6 +34,10 @@ vi.mock('@/hooks/use-api', () => ({
     post: vi.fn(),
     delete: vi.fn(),
   }),
+}));
+
+vi.mock('@/hooks/use-integration-platform', () => ({
+  useIntegrationMutations: () => ({ deleteConnection: vi.fn() }),
 }));
 
 // Mock child components
@@ -70,19 +81,12 @@ vi.mock('@trycompai/design-system', () => ({
   Button: ({
     children,
     onClick,
-    variant: _v,
-    size: _s,
-    ...props
   }: {
     children: React.ReactNode;
     onClick?: () => void;
     variant?: string;
     size?: string;
-  }) => (
-    <button onClick={onClick} {...props}>
-      {children}
-    </button>
-  ),
+  }) => <button onClick={onClick}>{children}</button>,
   PageHeader: ({
     title,
     actions,
@@ -98,12 +102,8 @@ vi.mock('@trycompai/design-system', () => ({
       {children}
     </div>
   ),
-  PageHeaderDescription: ({ children }: { children: React.ReactNode }) => (
-    <p>{children}</p>
-  ),
-  PageLayout: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  PageHeaderDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
+  PageLayout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 vi.mock('@trycompai/design-system/icons', () => ({
@@ -121,13 +121,16 @@ vi.mock('sonner', () => ({
 
 import { TestsLayout } from './TestsLayout';
 
-const mockProvider = {
+const mockProvider: Provider = {
   id: 'conn-1',
   integrationId: 'aws',
   name: 'AWS',
   displayName: 'AWS Production',
   status: 'active',
-  lastRunAt: '2024-01-01',
+  lastRunAt: new Date('2024-01-01'),
+  organizationId: 'org_123',
+  createdAt: new Date('2024-01-01'),
+  updatedAt: new Date('2024-01-01'),
   isLegacy: false,
   supportsMultipleConnections: false,
   requiredVariables: [],
@@ -220,13 +223,7 @@ describe('TestsLayout permission gating', () => {
       mutate: vi.fn(),
       isValidating: false,
     });
-    render(
-      <TestsLayout
-        initialFindings={[]}
-        initialProviders={[]}
-        orgId="org_123"
-      />,
-    );
+    render(<TestsLayout initialFindings={[]} initialProviders={[]} orgId="org_123" />);
     expect(screen.getByTestId('empty-state')).toBeInTheDocument();
   });
 });
