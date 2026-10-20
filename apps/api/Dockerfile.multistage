@@ -6,7 +6,7 @@ FROM oven/bun:1.3.4 AS deps
 WORKDIR /app
 
 # Copy root workspace config
-COPY package.json bun.lock ./
+COPY package.json bun.lock bunfig.toml ./
 
 # Strip root package.json to only keep workspaces config.
 # The root has frontend deps (design-system, react-dnd, sharp, semantic-release, etc.)
@@ -40,15 +40,15 @@ FROM oven/bun:1.3.4 AS builder
 
 WORKDIR /app
 
-# Copy node_modules first (from deps stage), then source on top.
-# This avoids conflicts between workspace symlinks and local node_modules
-# that get included from the build context.
+# Preserve the configured hoisted install and workspace-local dependencies
+# before overlaying source files (node_modules is excluded from the context).
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages ./packages
+COPY --from=deps /app/apps ./apps
 COPY --from=deps /app/package.json ./package.json
 COPY --from=deps /app/bun.lock ./bun.lock
 
-# Copy workspace packages source (node_modules excluded by .dockerignore,
-# but COPY replaces directories so workspace node_modules from deps get wiped)
+# Overlay workspace source while retaining installed local dependencies.
 COPY packages/auth ./packages/auth
 COPY packages/db ./packages/db
 COPY packages/utils ./packages/utils
@@ -76,7 +76,7 @@ RUN cd packages/auth && bun run build \
 # package build script here would run the API prebuild and generate Prisma again
 # from the multi-file schema, which can hit Prisma parser panics in Docker.
 RUN find /app/packages/db/prisma/schema -name '*.prisma' ! -name 'schema.prisma' -exec cp {} /app/apps/api/prisma/schema/ \; \
-  && cd /app/apps/api && CI=true bunx nest build
+  && cd /app/apps/api && CI=true NODE_OPTIONS=--max-old-space-size=4096 bunx nest build
 
 # =============================================================================
 # STAGE 3: Production Runtime
