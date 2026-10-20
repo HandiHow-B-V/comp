@@ -36,7 +36,10 @@ RUN bun install --ignore-scripts
 # =============================================================================
 # STAGE 2: Builder - Build workspace packages and NestJS app
 # =============================================================================
-FROM oven/bun:1.3.4 AS builder
+FROM node:22-slim AS builder
+
+COPY --from=deps /usr/local/bin/bun /usr/local/bin/bun
+RUN ln -s /usr/local/bin/bun /usr/local/bin/bunx
 
 WORKDIR /app
 
@@ -76,7 +79,7 @@ RUN cd packages/auth && bun run build \
 # package build script here would run the API prebuild and generate Prisma again
 # from the multi-file schema, which can hit Prisma parser panics in Docker.
 RUN find /app/packages/db/prisma/schema -name '*.prisma' ! -name 'schema.prisma' -exec cp {} /app/apps/api/prisma/schema/ \; \
-  && cd /app/apps/api && CI=true NODE_OPTIONS=--max-old-space-size=4096 bunx nest build
+  && cd /app/apps/api && CI=true NODE_OPTIONS=--max-old-space-size=4096 node /app/node_modules/@nestjs/cli/bin/nest.js build
 
 # =============================================================================
 # STAGE 3: Production Runtime
