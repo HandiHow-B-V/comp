@@ -138,7 +138,7 @@ type CreatePentestBodyWithScanProfile = CreatePentestBody & {
 @Injectable()
 export class SecurityPenetrationTestsService {
   private readonly logger = new Logger(SecurityPenetrationTestsService.name);
-  private readonly macedClient: MacedClient;
+  private readonly macedClient?: MacedClient;
 
   constructor(
     private readonly credits: PentestCreditsService,
@@ -146,8 +146,10 @@ export class SecurityPenetrationTestsService {
   ) {
     const apiKey = process.env.MACED_API_KEY;
     if (!apiKey) {
-      // Throw at construction so the app fails loudly on boot, not on first request.
-      throw new Error('MACED_API_KEY is required to start the pentest module');
+      this.logger.warn(
+        'MACED_API_KEY is not set; penetration test functionality is disabled.',
+      );
+      return;
     }
     this.macedClient = createMacedClient({
       apiKey,
@@ -164,18 +166,38 @@ export class SecurityPenetrationTestsService {
     });
   }
 
+  private requireMacedClient(): MacedClient {
+    if (!this.macedClient) {
+      throw new HttpException(
+        {
+          error:
+            'Penetration test functionality is not configured for this deployment',
+          source: 'maced',
+        },
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+
+    return this.macedClient;
+  }
+
   /**
    * Wraps a Maced SDK call so MacedApiError is translated into a NestJS
    * HttpException that preserves the upstream status code. Non-API errors
    * (network / unexpected) are mapped to 502 BAD_GATEWAY but we surface as
    * much detail as we can so the frontend toast is actually useful.
    */
-  private async callMaced<T>(
-    fn: () => Promise<T>,
-    context: string,
-  ): Promise<T> {
+  private async callMaced<T>({
+    fn,
+    context,
+  }: {
+    fn: (client: MacedClient) => Promise<T>;
+    context: string;
+  }): Promise<T> {
+    const client = this.requireMacedClient();
+
     try {
-      return await fn();
+      return await fn(client);
     } catch (error) {
       if (error instanceof MacedApiError) {
         const body =
@@ -237,10 +259,10 @@ export class SecurityPenetrationTestsService {
       return [];
     }
 
-    const reports = await this.callMaced(
-      () => this.macedClient.pentests.list(),
-      'listing penetration tests',
-    );
+    const reports = await this.callMaced({
+      fn: (client) => client.pentests.list(),
+      context: 'listing penetration tests',
+    });
 
     return reports
       .filter((report) => ownedRunIds.has(report.id))
@@ -251,6 +273,7 @@ export class SecurityPenetrationTestsService {
     organizationId: string,
     payload: CreatePenetrationTestDto,
   ): Promise<SecurityPenetrationTest> {
+    this.requireMacedClient();
     const resolvedWebhookUrl = this.resolveWebhookUrl(payload.webhookUrl);
     // Resolved before the billing reservation so a DB failure here can't
     // leave a debited allowance behind.
@@ -352,10 +375,10 @@ export class SecurityPenetrationTestsService {
 
     let createdReport: PentestCreated;
     try {
-      createdReport = await this.callMaced(
-        () => this.macedClient.pentests.create(body),
-        'creating penetration test',
-      );
+      createdReport = await this.callMaced({
+        fn: (client) => client.pentests.create(body),
+        context: 'creating penetration test',
+      });
     } catch (error) {
       // Provider call failed after we debited. Refund so the user isn't
       // charged for a run that never started.
@@ -487,10 +510,10 @@ export class SecurityPenetrationTestsService {
     id: string,
   ): Promise<SecurityPenetrationTest> {
     await this.assertRunOwnership(organizationId, id);
-    const report = await this.callMaced(
-      () => this.macedClient.pentests.get(id),
-      `fetching penetration test ${id}`,
-    );
+    const report = await this.callMaced({
+      fn: (client) => client.pentests.get(id),
+      context: `fetching penetration test ${id}`,
+    });
     return this.mapMacedRunToSecurityPenetrationTest(report);
   }
 
@@ -499,18 +522,18 @@ export class SecurityPenetrationTestsService {
     id: string,
   ): Promise<PentestProgress> {
     await this.assertRunOwnership(organizationId, id);
-    return this.callMaced(
-      () => this.macedClient.pentests.progress(id),
-      `fetching penetration test progress ${id}`,
-    );
+    return this.callMaced({
+      fn: (client) => client.pentests.progress(id),
+      context: `fetching penetration test progress ${id}`,
+    });
   }
 
   async getReportIssues(organizationId: string, id: string): Promise<Issue[]> {
     await this.assertRunOwnership(organizationId, id);
-    return this.callMaced(
-      () => this.macedClient.pentests.issues(id),
-      `fetching penetration test issues ${id}`,
-    );
+    return this.callMaced({
+      fn: (client) => client.pentests.issues(id),
+      context: `fetching penetration test issues ${id}`,
+    });
   }
 
   async getReportEvents(
@@ -518,10 +541,10 @@ export class SecurityPenetrationTestsService {
     id: string,
   ): Promise<PentestEvent[]> {
     await this.assertRunOwnership(organizationId, id);
-    const events = await this.callMaced(
-      () => this.macedClient.pentests.events(id),
-      `fetching penetration test events ${id}`,
-    );
+    const events = await this.callMaced({
+      fn: (client) => client.pentests.events(id),
+      context: `fetching penetration test events ${id}`,
+    });
     // Filter at the API layer (defense in depth) — a UI-only filter
     // would leave Maced-internal tool names (`mcp__maced-helper__*`)
     // and any "Maced" prose mentions visible in the raw HTTP response,
@@ -537,10 +560,10 @@ export class SecurityPenetrationTestsService {
   ): Promise<BinaryArtifact> {
     const run = await this.getReport(organizationId, id);
 
-    const report = await this.callMaced(
-      () => this.macedClient.pentests.report(id),
-      `fetching penetration test report ${id}`,
-    );
+    const report = await this.callMaced({
+      fn: (client) => client.pentests.report(id),
+      context: `fetching penetration test report ${id}`,
+    });
 
     const notes = await this.findContextNotesQuietly(
       organizationId,
@@ -564,10 +587,10 @@ export class SecurityPenetrationTestsService {
   ): Promise<BinaryArtifact> {
     const run = await this.getReport(organizationId, id);
 
-    const blob = await this.callMaced(
-      () => this.macedClient.pentests.reportPdf(id),
-      `fetching penetration test PDF ${id}`,
-    );
+    const blob = await this.callMaced({
+      fn: (client) => client.pentests.reportPdf(id),
+      context: `fetching penetration test PDF ${id}`,
+    });
 
     const original = Buffer.from(await blob.arrayBuffer());
     const notes = await this.findContextNotesQuietly(

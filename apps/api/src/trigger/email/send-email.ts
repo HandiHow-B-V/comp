@@ -19,10 +19,14 @@ export type EmailChannel = z.infer<typeof emailChannelSchema>;
 function resolveFromAddressForChannel(
   channel: EmailChannel | undefined,
 ): string | undefined {
-  const fromMarketing = process.env.RESEND_FROM_MARKETING;
-  const fromSystem = process.env.RESEND_FROM_SYSTEM;
-  const fromDefault = process.env.RESEND_FROM_DEFAULT;
-  const fromTrustPortal = process.env.RESEND_FROM_TRUST_PORTAL;
+  const fromMarketing =
+    process.env.BREVO_FROM_MARKETING ?? process.env.RESEND_FROM_MARKETING;
+  const fromSystem =
+    process.env.BREVO_FROM_SYSTEM ?? process.env.RESEND_FROM_SYSTEM;
+  const fromDefault =
+    process.env.BREVO_FROM_DEFAULT ?? process.env.RESEND_FROM_DEFAULT;
+  const fromTrustPortal =
+    process.env.BREVO_FROM_TRUST_PORTAL ?? process.env.RESEND_FROM_TRUST_PORTAL;
 
   switch (channel) {
     case 'trustPortal':
@@ -64,16 +68,18 @@ export const sendEmailTask = schemaTask({
   }),
   run: async (params) => {
     if (!resend) {
-      logger.error('Resend not initialized - missing RESEND_API_KEY', {
+      logger.error('Email provider not initialized - missing API key', {
         to: params.to,
         subject: params.subject,
       });
-      throw new Error('Resend not initialized - missing API key');
+      throw new Error('Email provider not initialized - missing API key');
     }
 
-    const toTest = process.env.RESEND_TO_TEST;
-    const fromSystem = process.env.RESEND_FROM_SYSTEM;
-    const fromDefault = process.env.RESEND_FROM_DEFAULT;
+    const toTest = process.env.BREVO_TO_TEST ?? process.env.RESEND_TO_TEST;
+    const fromSystem =
+      process.env.BREVO_FROM_SYSTEM ?? process.env.RESEND_FROM_SYSTEM;
+    const fromDefault =
+      process.env.BREVO_FROM_DEFAULT ?? process.env.RESEND_FROM_DEFAULT;
 
     const fromAddress =
       params.from ??
@@ -113,7 +119,7 @@ export const sendEmailTask = schemaTask({
       });
 
       if (error) {
-        logger.error('Resend API error', {
+        logger.error('Email provider API error', {
           error,
           to: params.to,
           subject: params.subject,

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { resend } from '../../email/resend';
 import { generateUnsubscribeToken } from '@trycompai/email';
 
-const RESEND_BATCH_LIMIT = 100;
+const EMAIL_BATCH_LIMIT = 100;
 
 const batchEmailQueue = queue({
   name: 'send-batch-email',
@@ -29,26 +29,29 @@ export const sendBatchEmailTask = schemaTask({
   }),
   run: async (params) => {
     if (!resend) {
-      logger.error('Resend not initialized - missing RESEND_API_KEY');
-      throw new Error('Resend not initialized - missing API key');
+      logger.error('Email provider not initialized - missing API key');
+      throw new Error('Email provider not initialized - missing API key');
     }
 
     const fromDefault =
-      process.env.RESEND_FROM_SYSTEM ?? process.env.RESEND_FROM_DEFAULT;
+      process.env.BREVO_FROM_SYSTEM ??
+      process.env.RESEND_FROM_SYSTEM ??
+      process.env.BREVO_FROM_DEFAULT ??
+      process.env.RESEND_FROM_DEFAULT;
 
     if (!fromDefault) {
       throw new Error('Missing FROM address in environment variables');
     }
 
-    const toTest = process.env.RESEND_TO_TEST;
+    const toTest = process.env.BREVO_TO_TEST ?? process.env.RESEND_TO_TEST;
     const apiBaseUrl =
       process.env.NEXT_PUBLIC_API_URL || 'https://api.trycomp.ai';
 
     let totalSent = 0;
     let totalFailed = 0;
 
-    for (let i = 0; i < params.emails.length; i += RESEND_BATCH_LIMIT) {
-      const chunk = params.emails.slice(i, i + RESEND_BATCH_LIMIT);
+    for (let i = 0; i < params.emails.length; i += EMAIL_BATCH_LIMIT) {
+      const chunk = params.emails.slice(i, i + EMAIL_BATCH_LIMIT);
 
       const payload = chunk.map((email) => {
         const token = generateUnsubscribeToken(email.to);
@@ -72,7 +75,7 @@ export const sendBatchEmailTask = schemaTask({
       });
 
       if (error) {
-        logger.error('Resend batch API error', {
+        logger.error('Email provider batch API error', {
           error,
           chunkIndex: i,
           chunkSize: chunk.length,

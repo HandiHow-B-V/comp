@@ -1,0 +1,150 @@
+name: comp-ai
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '5'
+    compress: 'true'
+
+x-app-env: &app-env
+  env_file:
+    - .env
+  environment:
+    DATABASE_URL: postgresql://${POSTGRES_USER:-comp}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/hetzner/.env}@postgres:5432/${POSTGRES_DB:-comp}
+    BASE_URL: ${API_URL}
+    BACKEND_API_URL: ${API_URL}
+    BETTER_AUTH_URL: ${API_URL}
+    NEXT_PUBLIC_API_URL: ${API_URL}
+    NEXT_PUBLIC_BETTER_AUTH_URL: ${API_URL}
+    NEXT_PUBLIC_APP_URL: ${APP_URL}
+    NEXT_PUBLIC_PORTAL_URL: ${PORTAL_URL}
+    NEXT_PUBLIC_SELF_HOSTED: 'true'
+    NODE_ENV: production
+    PRISMA_DISABLE_TLS: '1'
+  restart: unless-stopped
+  logging: *default-logging
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    env_file:
+      - .env
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_started
+      api:
+        condition: service_started
+    logging: *default-logging
+
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-comp}
+      POSTGRES_USER: ${POSTGRES_USER:-comp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/hetzner/.env}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-comp} -d ${POSTGRES_DB:-comp}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *default-logging
+
+  migrator:
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile.multistage
+      target: migrator
+    profiles:
+      - migrate
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-comp}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/hetzner/.env}@postgres:5432/${POSTGRES_DB:-comp}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *default-logging
+
+  api:
+    image: comp-ai-api:${COMP_IMAGE_TAG:-local}
+    <<: *app-env
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile.multistage
+      target: production
+    expose:
+      - '3333'
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-comp}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/hetzner/.env}@postgres:5432/${POSTGRES_DB:-comp}
+      BASE_URL: ${API_URL}
+      BACKEND_API_URL: ${API_URL}
+      BETTER_AUTH_URL: ${API_URL}
+      NEXT_PUBLIC_API_URL: ${API_URL}
+      NEXT_PUBLIC_BETTER_AUTH_URL: ${API_URL}
+      NEXT_PUBLIC_APP_URL: ${APP_URL}
+      NEXT_PUBLIC_PORTAL_URL: ${PORTAL_URL}
+      NEXT_PUBLIC_SELF_HOSTED: 'true'
+      NODE_ENV: production
+      PRISMA_DISABLE_TLS: '1'
+      PORT: '3333'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'wget --no-verbose --tries=1 --spider http://localhost:3333/v1/health || exit 1',
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  app:
+    image: comp-ai-app:${COMP_IMAGE_TAG:-local}
+    <<: *app-env
+    build:
+      context: ../..
+      dockerfile: Dockerfile.render-app
+      args:
+        NEXT_PUBLIC_API_URL: ${API_URL}
+        NEXT_PUBLIC_BETTER_AUTH_URL: ${API_URL}
+        NEXT_PUBLIC_PORTAL_URL: ${PORTAL_URL}
+        NEXT_PUBLIC_IS_DUB_ENABLED: 'false'
+        NEXT_PUBLIC_SELF_HOSTED: 'true'
+        BUILD_MEMORY_LIMIT_MB: ${BUILD_MEMORY_LIMIT_MB:-3072}
+        SKIP_NEXT_TYPECHECK: ${SKIP_NEXT_TYPECHECK:-true}
+    expose:
+      - '3000'
+    command: ['node', 'apps/app/server.js']
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1',
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:

@@ -175,3 +175,12 @@ test-results/
 **/*.dylib*
 **/*.node
 **/*.pack
+
+# Self-hosted runtime secrets and backups are not build inputs.
+**/.env
+**/.env.*
+!**/.env.example
+**/.codex-env.local
+deploy/hetzner/backups/
+deploy/hetzner/*.dump
+deploy/hetzner/*.private.*

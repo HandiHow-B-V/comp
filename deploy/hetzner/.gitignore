@@ -1,0 +1,8 @@
+/.env
+/.env.*
+!/.env.example
+/backups/
+*.dump
+*.private.*
+/compose.override.yml
+/compose.*.override.yml

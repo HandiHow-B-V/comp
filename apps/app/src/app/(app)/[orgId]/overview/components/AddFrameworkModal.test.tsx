@@ -1,12 +1,13 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  setMockPermissions,
   ADMIN_PERMISSIONS,
   AUDITOR_PERMISSIONS,
   NO_PERMISSIONS,
   mockHasPermission,
+  setMockPermissions,
 } from '@/test-utils/mocks/permissions';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ButtonHTMLAttributes, PropsWithChildren } from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/hooks/use-permissions', () => ({
   usePermissions: () => ({
@@ -31,42 +32,51 @@ vi.mock('sonner', () => ({
   toast: { info: vi.fn(), error: vi.fn(), success: vi.fn() },
 }));
 
-vi.mock('@trycompai/ui/button', () => ({
-  Button: ({ children, disabled, ...props }: any) => (
-    <button disabled={disabled} {...props}>
-      {children}
-    </button>
-  ),
+vi.mock('@trycompai/design-system', () => ({
+  Button: ({
+    children,
+    loading: _loading,
+    size: _size,
+    variant: _variant,
+    ...props
+  }: PropsWithChildren<
+    ButtonHTMLAttributes<HTMLButtonElement> & {
+      loading?: boolean;
+      size?: string;
+      variant?: string;
+    }
+  >) => <button {...props}>{children}</button>,
+  Spinner: () => <span role="status">Adding frameworks</span>,
 }));
 
 vi.mock('@trycompai/ui/dialog', () => ({
-  DialogContent: ({ children }: any) => (
-    <div data-testid="dialog-content">{children}</div>
-  ),
-  DialogDescription: ({ children }: any) => <p>{children}</p>,
-  DialogFooter: ({ children }: any) => <div>{children}</div>,
-  DialogHeader: ({ children }: any) => <div>{children}</div>,
-  DialogTitle: ({ children }: any) => <h2>{children}</h2>,
+  DialogContent: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  DialogDescription: ({ children }: PropsWithChildren) => <p>{children}</p>,
+  DialogFooter: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  DialogHeader: ({ children }: PropsWithChildren) => <div>{children}</div>,
+  DialogTitle: ({ children }: PropsWithChildren) => <h2>{children}</h2>,
 }));
 
 vi.mock('@/components/framework-card', () => ({
-  FrameworkCard: ({ framework, isSelected, onSelectionChange }: any) => (
-    <div data-testid={`framework-card-${framework.id}`}>
-      <label>
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={(e) => onSelectionChange(e.target.checked)}
-          data-testid={`framework-checkbox-${framework.id}`}
-        />
-        {framework.name}
-      </label>
-    </div>
+  FrameworkCard: ({
+    framework,
+    isSelected,
+    onSelectionChange,
+  }: {
+    framework: { id: string; name: string };
+    isSelected: boolean;
+    onSelectionChange: (checked: boolean) => void;
+  }) => (
+    <label>
+      <input
+        type="checkbox"
+        checked={isSelected}
+        onChange={(event) => onSelectionChange(event.target.checked)}
+        data-testid={`framework-checkbox-${framework.id}`}
+      />
+      {framework.name}
+    </label>
   ),
-}));
-
-vi.mock('lucide-react', () => ({
-  Loader2: () => <span data-testid="loader-icon" />,
 }));
 
 import { AddFrameworkModal } from './AddFrameworkModal';
@@ -97,6 +107,7 @@ const defaultProps = {
 describe('AddFrameworkModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAddFrameworks.mockResolvedValue({ frameworksAdded: 1 });
   });
 
   describe('Permission gating', () => {
@@ -145,6 +156,27 @@ describe('AddFrameworkModal', () => {
     });
   });
 
+  it('lets an organization administrator add a framework without a platform admin session', async () => {
+    setMockPermissions(ADMIN_PERMISSIONS);
+    render(<AddFrameworkModal {...defaultProps} />);
+
+    fireEvent.click(screen.getByTestId('framework-checkbox-fw-1'));
+    fireEvent.click(screen.getByRole('button', { name: /add selected/i }));
+
+    await waitFor(() => expect(mockAddFrameworks).toHaveBeenCalledWith(['fw-1']));
+    await waitFor(() => expect(defaultProps.onOpenChange).toHaveBeenCalledWith(false));
+  });
+
+  it('never submits a framework selection for a read-only user', () => {
+    setMockPermissions(AUDITOR_PERMISSIONS);
+    render(<AddFrameworkModal {...defaultProps} />);
+
+    fireEvent.click(screen.getByTestId('framework-checkbox-fw-1'));
+    fireEvent.click(screen.getByRole('button', { name: /add selected/i }));
+
+    expect(mockAddFrameworks).not.toHaveBeenCalled();
+  });
+
   describe('Rendering', () => {
     it('renders modal title and description', () => {
       setMockPermissions(ADMIN_PERMISSIONS);
@@ -152,9 +184,7 @@ describe('AddFrameworkModal', () => {
       render(<AddFrameworkModal {...defaultProps} />);
 
       expect(screen.getByText('Add Frameworks')).toBeInTheDocument();
-      expect(
-        screen.getByText(/select the compliance frameworks/i),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/select the compliance frameworks/i)).toBeInTheDocument();
     });
 
     it('renders available framework cards', () => {
@@ -169,16 +199,9 @@ describe('AddFrameworkModal', () => {
     it('shows empty state when no frameworks available', () => {
       setMockPermissions(ADMIN_PERMISSIONS);
 
-      render(
-        <AddFrameworkModal
-          {...defaultProps}
-          availableFrameworks={[]}
-        />,
-      );
+      render(<AddFrameworkModal {...defaultProps} availableFrameworks={[]} />);
 
-      expect(
-        screen.getByText(/all available frameworks are already enabled/i),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/all available frameworks are already enabled/i)).toBeInTheDocument();
     });
 
     it('disables "Add Selected" button when nothing is selected even with permissions', () => {

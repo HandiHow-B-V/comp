@@ -22,3 +22,12 @@ export * from './lib/training-completed';
 export * from './lib/unassigned-items-notification';
 export * from './lib/unsubscribe';
 export * from './lib/weekly-task-digest';
+
+export { createEmailProvider } from './lib/email-provider';
+export type {
+  EmailBatchResult,
+  EmailProvider,
+  EmailSendResult,
+  SendEmailPayload,
+} from './lib/email-provider.types';
+export { sendEmailWithProvider } from './lib/send-email';

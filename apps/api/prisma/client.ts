@@ -27,9 +27,10 @@ function isLocalhostUrl(connectionString: string): boolean {
 function createPrismaClient(): PrismaClient {
   const rawUrl = process.env.DATABASE_URL!;
   const isLocalhost = isLocalhostUrl(rawUrl);
+  const disableTls = process.env.PRISMA_DISABLE_TLS === '1';
   const allowInsecure = process.env.PRISMA_ALLOW_INSECURE_TLS === '1';
   // Strategy:
-  // - Localhost: TLS off (typical dev Postgres has no cert).
+  // - Localhost or explicit PRISMA_DISABLE_TLS=1: TLS off (private Docker Postgres).
   // - Remote in explicit opt-out mode (PRISMA_ALLOW_INSECURE_TLS=1):
   //   unverified TLS. This must take precedence over NODE_EXTRA_CA_CERTS because
   //   Render's internal Postgres URL can present a self-signed certificate.
@@ -42,7 +43,7 @@ function createPrismaClient(): PrismaClient {
     | undefined
     | { checkServerIdentity: () => undefined }
     | { rejectUnauthorized: false };
-  if (isLocalhost) {
+  if (disableTls || isLocalhost) {
     ssl = undefined;
   } else if (allowInsecure) {
     ssl = { rejectUnauthorized: false };
@@ -58,7 +59,7 @@ function createPrismaClient(): PrismaClient {
     );
   }
   // Strip sslmode from the connection string to avoid conflicts with the explicit ssl option
-  const url = ssl !== undefined ? stripSslMode(rawUrl) : rawUrl;
+  const url = ssl !== undefined || disableTls ? stripSslMode(rawUrl) : rawUrl;
   const adapter = new PrismaPg({ connectionString: url, ssl });
   return new PrismaClient({
     adapter,

@@ -1,7 +1,10 @@
 'use client';
 
 import { FrameworkCard } from '@/components/framework-card';
-import { Alert, Button, Spinner } from '@trycompai/design-system';
+import { useFrameworks } from '@/hooks/use-frameworks';
+import { usePermissions } from '@/hooks/use-permissions';
+import type { FrameworkEditorFramework } from '@db';
+import { Button, Spinner } from '@trycompai/design-system';
 import {
   DialogContent,
   DialogDescription,
@@ -9,11 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@trycompai/ui/dialog';
-import type { FrameworkEditorFramework } from '@db';
-import { useSession } from '@/utils/auth-client';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { useFrameworks } from '@/hooks/use-frameworks';
 
 type Props = {
   onOpenChange: (isOpen: boolean) => void;
@@ -24,39 +24,25 @@ type Props = {
   organizationId?: string;
 };
 
-export function AddFrameworkModal({
-  onOpenChange,
-  availableFrameworks,
-}: Props) {
+export function AddFrameworkModal({ onOpenChange, availableFrameworks }: Props) {
   const { addFrameworks } = useFrameworks();
-  const { data: session } = useSession();
-  const isImpersonating = typeof (session?.session as Record<string, unknown>)?.impersonatedBy === 'string';
-  const canAddFramework = session?.user?.role === 'admin' || isImpersonating;
+  const { hasPermission } = usePermissions();
+  const canCreateFramework = hasPermission('framework', 'create');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showContactMessage, setShowContactMessage] = useState(false);
 
   const handleSubmit = async () => {
-    if (selectedIds.length === 0) return;
-
-    if (!canAddFramework) {
-      setShowContactMessage(true);
-      return;
-    }
+    if (!canCreateFramework || selectedIds.length === 0) return;
 
     setIsSubmitting(true);
 
     try {
       const result = await addFrameworks(selectedIds);
       const count = result?.frameworksAdded ?? 0;
-      toast.success(
-        `Successfully added ${count} framework${count > 1 ? 's' : ''}`,
-      );
+      toast.success(`Successfully added ${count} framework${count > 1 ? 's' : ''}`);
       onOpenChange(false);
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : 'Failed to add frameworks',
-      );
+      toast.error(err instanceof Error ? err.message : 'Failed to add frameworks');
     } finally {
       setIsSubmitting(false);
     }
@@ -67,19 +53,14 @@ export function AddFrameworkModal({
     onOpenChange(open);
   };
 
-  const toggleFramework = (id: string, checked: boolean) => {
-    setShowContactMessage(false);
-    setSelectedIds((prev) =>
-      checked ? [...prev, id] : prev.filter((fid) => fid !== id),
-    );
+  const handleFrameworkSelection = ({ id, checked }: { id: string; checked: boolean }) => {
+    setSelectedIds((prev) => (checked ? [...prev, id] : prev.filter((fid) => fid !== id)));
   };
 
   return (
     <DialogContent className="max-w-md">
       <DialogHeader className="space-y-2">
-        <DialogTitle className="text-base font-medium">
-          Add Frameworks
-        </DialogTitle>
+        <DialogTitle className="text-base font-medium">Add Frameworks</DialogTitle>
         <DialogDescription className="text-muted-foreground text-sm">
           {availableFrameworks.length > 0
             ? 'Select the compliance frameworks to add to your organization.'
@@ -98,19 +79,11 @@ export function AddFrameworkModal({
                   framework={framework}
                   isSelected={selectedIds.includes(framework.id)}
                   onSelectionChange={(checked) =>
-                    toggleFramework(framework.id, checked)
+                    handleFrameworkSelection({ id: framework.id, checked })
                   }
                 />
               ))}
           </div>
-
-          {showContactMessage && (
-            <Alert
-              variant="info"
-              title="Contact your account manager"
-              description="To add frameworks to your organization, please reach out to your account manager."
-            />
-          )}
 
           <DialogFooter className="gap-2 border-t pt-4">
             <Button
@@ -123,7 +96,7 @@ export function AddFrameworkModal({
             </Button>
             <Button
               size="sm"
-              disabled={isSubmitting || selectedIds.length === 0}
+              disabled={!canCreateFramework || isSubmitting || selectedIds.length === 0}
               loading={isSubmitting}
               onClick={handleSubmit}
             >
@@ -139,11 +112,7 @@ export function AddFrameworkModal({
             All available frameworks are already enabled in your organization.
           </div>
           <DialogFooter className="mt-6 border-t pt-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleOpenChange(false)}
-            >
+            <Button variant="outline" size="sm" onClick={() => handleOpenChange(false)}>
               Close
             </Button>
           </DialogFooter>
@@ -153,9 +122,7 @@ export function AddFrameworkModal({
       {isSubmitting && (
         <div className="flex items-center justify-center py-8">
           <Spinner />
-          <span className="text-muted-foreground ml-3 text-sm">
-            Adding frameworks...
-          </span>
+          <span className="text-muted-foreground ml-3 text-sm">Adding frameworks...</span>
         </div>
       )}
     </DialogContent>

@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = global as unknown as { prisma?: PrismaClient };
 
@@ -24,28 +24,19 @@ function isLocalhostUrl(connectionString: string): boolean {
 function createPrismaClient(): PrismaClient {
   const rawUrl = process.env.DATABASE_URL!;
   const isLocalhost = isLocalhostUrl(rawUrl);
+  const disableTls = process.env.PRISMA_DISABLE_TLS === '1';
   const allowInsecure = process.env.PRISMA_ALLOW_INSECURE_TLS === '1';
 
-  // Verified TLS via Node's default trust store, which includes Amazon Root
-  // CA 1 — where AWS RDS Proxy chains terminate. Hostname check is skipped
-  // because connections traverse an AWS NLB whose hostname isn't in the RDS
-  // Proxy cert's SAN list; the chain check still rejects forged or wrong-CA
-  // certs. PRISMA_ALLOW_INSECURE_TLS=1 is an explicit opt-out (no silent
-  // fallback to unverified TLS).
-  //
-  // Previously this passed `ca: RDS_CA_BUNDLE` — but `ssl.ca` *replaces*
-  // Node's trust store rather than augmenting it, and our bundle only
-  // contains regional RDS CAs (not Amazon Root CA 1), so the RDS Proxy
-  // chain failed to validate. Surfaced as P1011 TlsConnectionError /
-  // "unable to get local issuer certificate" at runtime.
+  // Local Docker Postgres does not support TLS. Use PRISMA_DISABLE_TLS=1 for
+  // private network deployments; otherwise keep verified TLS for remote DBs.
   const ssl: undefined | { checkServerIdentity: () => undefined } | { rejectUnauthorized: false } =
-    isLocalhost
+    disableTls || isLocalhost
       ? undefined
       : allowInsecure
         ? { rejectUnauthorized: false }
         : { checkServerIdentity: () => undefined };
 
-  const url = ssl !== undefined ? stripSslMode(rawUrl) : rawUrl;
+  const url = ssl !== undefined || disableTls ? stripSslMode(rawUrl) : rawUrl;
   const adapter = new PrismaPg({ connectionString: url, ssl });
   return new PrismaClient({
     adapter,
