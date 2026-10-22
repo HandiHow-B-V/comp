@@ -81,6 +81,12 @@ RUN cd packages/auth && bun run build \
 RUN find /app/packages/db/prisma/schema -name '*.prisma' ! -name 'schema.prisma' -exec cp {} /app/apps/api/prisma/schema/ \; \
   && cd /app/apps/api && CI=true NODE_OPTIONS=--max-old-space-size=4096 node /app/node_modules/@nestjs/cli/bin/nest.js build
 
+# Run migrations with this checkout's schema and locked Prisma dependencies.
+FROM builder AS migrator
+
+WORKDIR /app/packages/db
+CMD ["node", "/app/node_modules/prisma/build/index.js", "migrate", "deploy", "--config", "prisma.config.ts"]
+
 # =============================================================================
 # STAGE 3: Production Runtime
 # =============================================================================

@@ -2,21 +2,14 @@ import { getFeatureFlags } from '@/app/posthog';
 import { APP_AWS_ORG_ASSETS_BUCKET, s3Client } from '@/app/s3';
 import { TriggerTokenProvider } from '@/components/trigger-token-provider';
 import { serverApi } from '@/lib/api-server';
-import {
-  canAccessApp,
-  canAccessAuditorView,
-  parseRolesString,
-} from '@/lib/permissions';
-import {
-  resolveCustomRolePermissions,
-  resolveUserPermissions,
-} from '@/lib/permissions.server';
+import { canAccessApp, canAccessAuditorView, parseRolesString } from '@/lib/permissions';
+import { resolveCustomRolePermissions, resolveUserPermissions } from '@/lib/permissions.server';
+import { getSignedUrl } from '@/lib/s3-presigner';
 import type { OrganizationFromMe } from '@/types';
 import { auth } from '@/utils/auth';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@/lib/s3-presigner';
-import { OrganizationIdentifier, ServerFeatureFlagsProvider } from '@trycompai/analytics';
 import { db, Role } from '@db/server';
+import { OrganizationIdentifier, ServerFeatureFlagsProvider } from '@trycompai/analytics';
 import dynamic from 'next/dynamic';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
@@ -125,7 +118,8 @@ export default async function Layout({
 
   // Generate logo URLs for all organizations
   const logoUrls: Record<string, string> = {};
-  if (s3Client && APP_AWS_ORG_ASSETS_BUCKET) {
+  const logoClient = s3Client;
+  if (logoClient && APP_AWS_ORG_ASSETS_BUCKET) {
     await Promise.all(
       organizations.map(async (org) => {
         if (org.logo) {
@@ -134,7 +128,7 @@ export default async function Layout({
               Bucket: APP_AWS_ORG_ASSETS_BUCKET,
               Key: org.logo,
             });
-            logoUrls[org.id] = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+            logoUrls[org.id] = await getSignedUrl(logoClient, command, { expiresIn: 3600 });
           } catch {
             // Logo not available
           }
@@ -170,14 +164,8 @@ export default async function Layout({
   // audit:read — built-in `auditor` role OR a custom role with explicit
   // audit:read. Resolve the custom-role permissions once so we don't
   // second-guess the owner/admin's implicit all-permissions in the UI.
-  const customRolePermissions = await resolveCustomRolePermissions(
-    member.role,
-    requestedOrgId,
-  );
-  const auditorViewVisible = canAccessAuditorView(
-    member.role,
-    customRolePermissions,
-  );
+  const customRolePermissions = await resolveCustomRolePermissions(member.role, requestedOrgId);
+  const auditorViewVisible = canAccessAuditorView(member.role, customRolePermissions);
 
   // User data for navbar
   const user = {

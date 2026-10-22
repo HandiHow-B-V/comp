@@ -10,7 +10,7 @@ export const APP_AWS_QUESTIONNAIRE_UPLOAD_BUCKET = process.env.APP_AWS_QUESTIONN
 export const APP_AWS_KNOWLEDGE_BASE_BUCKET = process.env.APP_AWS_KNOWLEDGE_BASE_BUCKET;
 export const APP_AWS_ORG_ASSETS_BUCKET = process.env.APP_AWS_ORG_ASSETS_BUCKET;
 
-let s3ClientInstance: S3Client;
+let s3ClientInstance: S3Client | null = null;
 
 try {
   if (!APP_AWS_ACCESS_KEY_ID || !APP_AWS_SECRET_ACCESS_KEY || !BUCKET_NAME || !APP_AWS_REGION) {
@@ -35,7 +35,7 @@ try {
   console.error('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
 
   // Create a dummy client that will fail gracefully at runtime instead of crashing during initialization
-  s3ClientInstance = null as any;
+  s3ClientInstance = null;
   console.error(
     '[S3] Creating dummy S3 client - file uploads will fail until credentials are fixed',
   );
@@ -48,6 +48,13 @@ export const s3Client = s3ClientInstance;
  */
 function isValidS3Host(host: string): boolean {
   const normalizedHost = host.toLowerCase();
+  const configuredEndpointHost = APP_AWS_ENDPOINT
+    ? new URL(APP_AWS_ENDPOINT).host.toLowerCase()
+    : null;
+
+  if (configuredEndpointHost && normalizedHost === configuredEndpointHost) {
+    return true;
+  }
 
   // Must end with amazonaws.com
   if (!normalizedHost.endsWith('.amazonaws.com')) {
@@ -123,6 +130,10 @@ export function extractS3KeyFromUrl(url: string): string {
 }
 
 export async function getFleetAgent({ os }: { os: 'macos' | 'windows' | 'linux' }) {
+  if (!s3Client) {
+    throw new Error('S3 client not configured');
+  }
+
   const fleetBucketName = process.env.FLEET_AGENT_BUCKET_NAME;
   const fleetAgentFileName = 'Comp AI Agent-1.0.0-arm64.dmg';
 

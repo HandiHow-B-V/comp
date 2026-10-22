@@ -778,8 +778,6 @@ describe('SecurityPenetrationTestsService', () => {
   // TODO(phase-5): webhook tests removed — handleWebhook now verifies HMAC
   // via @maced/api-client verifyMacedWebhook. Rewrite: valid signature → ok,
   // invalid/missing signature → ForbiddenException, unknown run → warn+ok.
-  // Also rewrite the MACED_API_KEY missing test — new behavior throws at
-  // service construction, not on first request.
 
   it('fetches report output as binary payload', async () => {
     const fixtureContent = 'markdown report body';

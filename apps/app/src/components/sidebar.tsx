@@ -1,12 +1,12 @@
 import { getFeatureFlags } from '@/app/posthog';
 import { APP_AWS_ORG_ASSETS_BUCKET, s3Client } from '@/app/s3';
 import { serverApi } from '@/lib/api-server';
+import { getSignedUrl } from '@/lib/s3-presigner';
 import type { OrganizationFromMe } from '@/types';
 import { auth } from '@/utils/auth';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@/lib/s3-presigner';
-import { cn } from '@trycompai/ui/cn';
 import { db, type Organization, Role } from '@db/server';
+import { cn } from '@trycompai/ui/cn';
 import { cookies, headers } from 'next/headers';
 import { MainMenu } from './main-menu';
 import { OrganizationSwitcher } from './organization-switcher';
@@ -30,7 +30,8 @@ export async function Sidebar({
 
   // Generate logo URLs for all organizations
   const logoUrls: Record<string, string> = {};
-  if (s3Client && APP_AWS_ORG_ASSETS_BUCKET) {
+  const logoClient = s3Client;
+  if (logoClient && APP_AWS_ORG_ASSETS_BUCKET) {
     await Promise.all(
       organizations.map(async (org) => {
         if (org.logo) {
@@ -39,7 +40,7 @@ export async function Sidebar({
               Bucket: APP_AWS_ORG_ASSETS_BUCKET,
               Key: org.logo,
             });
-            logoUrls[org.id] = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+            logoUrls[org.id] = await getSignedUrl(logoClient, command, { expiresIn: 3600 });
           } catch {
             // Logo not available
           }

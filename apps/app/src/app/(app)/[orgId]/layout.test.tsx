@@ -7,9 +7,9 @@ vi.mock('@/utils/auth', async () => {
 });
 
 // Mock db module
-vi.mock('@db', async () => {
+vi.mock('@db/server', async () => {
   const { mockDb } = await import('@/test-utils/mocks/db');
-  const actual = await vi.importActual<typeof import('@db')>('@db');
+  const actual = await vi.importActual<typeof import('@db/server')>('@db/server');
   return { ...actual, db: mockDb };
 });
 
@@ -31,10 +31,12 @@ vi.mock('@/lib/api-server', () => ({
 }));
 vi.mock('@/lib/permissions', () => ({
   canAccessApp: vi.fn().mockReturnValue(true),
+  canAccessAuditorView: vi.fn().mockReturnValue(false),
   parseRolesString: vi.fn().mockReturnValue(['owner']),
 }));
 vi.mock('@/lib/permissions.server', () => ({
   resolveUserPermissions: vi.fn().mockResolvedValue([]),
+  resolveCustomRolePermissions: vi.fn().mockResolvedValue([]),
 }));
 vi.mock('./components/AppShellWrapper', () => ({
   AppShellWrapper: ({ children }: { children: React.ReactNode }) => children,
@@ -43,8 +45,10 @@ vi.mock('next/dynamic', () => ({
   default: () => () => null,
 }));
 vi.mock('@aws-sdk/client-s3', () => ({ GetObjectCommand: vi.fn() }));
-vi.mock('@aws-sdk/s3-request-presigner', () => ({ getSignedUrl: vi.fn() }));
+vi.mock('@/lib/s3-presigner', () => ({ getSignedUrl: vi.fn() }));
 
+import { serverApi } from '@/lib/api-server';
+import { getSignedUrl } from '@/lib/s3-presigner';
 import { createMockSession, mockAuthApi, setupAuthMocks } from '@/test-utils/mocks/auth';
 import { mockDb } from '@/test-utils/mocks/db';
 
@@ -72,6 +76,24 @@ describe('Layout activeOrganizationId sync', () => {
     });
     mockDb.onboarding.findFirst.mockResolvedValue(null);
     mockAuthApi.setActiveOrganization.mockResolvedValue({});
+  });
+
+  it('renders without signing organization logos when S3 is unavailable', async () => {
+    setupAuthMocks({
+      session: createMockSession({ id: sessionId, activeOrganizationId: requestedOrgId }),
+    });
+    vi.mocked(serverApi.get).mockResolvedValueOnce({
+      data: { organizations: [{ id: requestedOrgId, logo: 'organization-logo.png' }] },
+      status: 200,
+    });
+
+    const result = await Layout({
+      children: null,
+      params: Promise.resolve({ orgId: requestedOrgId }),
+    });
+
+    expect(result).toBeDefined();
+    expect(getSignedUrl).not.toHaveBeenCalled();
   });
 
   it('should call setActiveOrganization via auth API when session org differs from URL org', async () => {

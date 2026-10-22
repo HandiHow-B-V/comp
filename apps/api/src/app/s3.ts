@@ -76,6 +76,13 @@ export const s3Client = s3ClientInstance;
 
 function isValidS3Host(host: string): boolean {
   const normalizedHost = host.toLowerCase();
+  const configuredEndpointHost = APP_AWS_ENDPOINT
+    ? new URL(APP_AWS_ENDPOINT).host.toLowerCase()
+    : null;
+
+  if (configuredEndpointHost && normalizedHost === configuredEndpointHost) {
+    return true;
+  }
 
   if (!normalizedHost.endsWith('.amazonaws.com')) {
     return false;

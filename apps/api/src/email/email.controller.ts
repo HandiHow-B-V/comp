@@ -1,5 +1,6 @@
 import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
 import {
+  ApiBody,
   ApiExcludeController,
   ApiOperation,
   ApiResponse,
@@ -26,8 +27,11 @@ export class EmailController {
   @RequirePermission('email', 'send')
   @ApiOperation({
     summary: 'Send an email via the centralized Trigger task (internal)',
+    description:
+      'Queue an internal transactional email. Requires email-send permission and configured Trigger delivery.',
   })
   @ApiResponse({ status: 200, description: 'Email task triggered' })
+  @ApiBody({ type: SendEmailDto })
   async sendEmail(@Body() dto: SendEmailDto) {
     const handle = await tasks.trigger<typeof sendEmailTask>('send-email', {
       to: dto.to,
@@ -47,12 +51,19 @@ export class EmailController {
   @HttpCode(200)
   @RequirePermission('email', 'send')
   @ApiOperation({
-    summary: 'Send a batch of emails via the centralized Trigger task (internal)',
+    summary:
+      'Send a batch of emails via the centralized Trigger task (internal)',
+    description:
+      'Queue an internal email batch using the configured Brevo or Resend sender. Requires email-send permission.',
   })
   @ApiResponse({ status: 200, description: 'Batch email task triggered' })
+  @ApiBody({ type: SendBatchEmailDto })
   async sendBatchEmail(@Body() dto: SendBatchEmailDto) {
     const fromAddress =
-      process.env.RESEND_FROM_SYSTEM ?? process.env.RESEND_FROM_DEFAULT;
+      process.env.BREVO_FROM_SYSTEM ??
+      process.env.RESEND_FROM_SYSTEM ??
+      process.env.BREVO_FROM_DEFAULT ??
+      process.env.RESEND_FROM_DEFAULT;
 
     const emails = dto.emails.map((email) => ({
       to: email.to,
